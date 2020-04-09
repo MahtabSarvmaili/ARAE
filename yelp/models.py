@@ -89,19 +89,19 @@ class Seq2Seq2Decoder(nn.Module):
                                num_layers=1,
                                dropout=dropout,
                                batch_first=True)
-        self.decoder2 = nn.LSTM(input_size=decoder_input_size,
-                               hidden_size=nhidden,
-                               num_layers=1,
-                               dropout=dropout,
-                               batch_first=True)
+        # self.decoder2 = nn.LSTM(input_size=decoder_input_size,
+        #                        hidden_size=nhidden,
+        #                        num_layers=1,
+        #                        dropout=dropout,
+        #                        batch_first=True)
 
         # Initialize Linear Transformation
         self.linear = nn.Linear(nhidden, ntokens)
 
         self.init_weights()
 
-        if share_decoder_emb:
-            self.embedding_decoder2.weight = self.embedding_decoder1.weight
+        # if share_decoder_emb:
+        #     self.embedding_decoder2.weight = self.embedding_decoder1.weight
 
     def init_weights(self):
         initrange = 0.1
@@ -109,15 +109,15 @@ class Seq2Seq2Decoder(nn.Module):
         # Initialize Vocabulary Matrix Weight
         self.embedding.weight.data.uniform_(-initrange, initrange)
         self.embedding_decoder1.weight.data.uniform_(-initrange, initrange)
-        self.embedding_decoder2.weight.data.uniform_(-initrange, initrange)
+        # self.embedding_decoder2.weight.data.uniform_(-initrange, initrange)
 
         # Initialize Encoder and Decoder Weights
         for p in self.encoder.parameters():
             p.data.uniform_(-initrange, initrange)
         for p in self.decoder1.parameters():
             p.data.uniform_(-initrange, initrange)
-        for p in self.decoder2.parameters():
-            p.data.uniform_(-initrange, initrange)
+        # for p in self.decoder2.parameters():
+        #     p.data.uniform_(-initrange, initrange)
 
         # Initialize Linear Weight
         self.linear.weight.data.uniform_(-initrange, initrange)
@@ -191,20 +191,20 @@ class Seq2Seq2Decoder(nn.Module):
         else:
             state = self.init_hidden(batch_size)
 
-        if whichdecoder == 1:
-            embeddings = self.embedding_decoder1(indices)
-        else:
-            embeddings = self.embedding_decoder2(indices)
+        # if whichdecoder == 1:
+        embeddings = self.embedding_decoder1(indices)
+        # else:
+        #     embeddings = self.embedding_decoder2(indices)
 
         augmented_embeddings = torch.cat([embeddings, all_hidden], 2)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
 
-        if whichdecoder == 1:
-            packed_output, state = self.decoder1(packed_embeddings, state)
-        else:
-            packed_output, state = self.decoder2(packed_embeddings, state)
+        # if whichdecoder == 1:
+        packed_output, state = self.decoder1(packed_embeddings, state)
+        # else:
+        #     packed_output, state = self.decoder2(packed_embeddings, state)
         output, lengths = pad_packed_sequence(packed_output, batch_first=True)
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
@@ -229,20 +229,20 @@ class Seq2Seq2Decoder(nn.Module):
         self.start_symbols.data.fill_(1)
         self.start_symbols = to_gpu(self.gpu, self.start_symbols)
 
-        if whichdecoder == 1:
-            embedding = self.embedding_decoder1(self.start_symbols)
-        else:
-            embedding = self.embedding_decoder2(self.start_symbols)
+        # if whichdecoder == 1:
+        embedding = self.embedding_decoder1(self.start_symbols)
+        # else:
+        #     embedding = self.embedding_decoder2(self.start_symbols)
 
         inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
 
         # unroll
         all_indices = []
         for i in range(maxlen):
-            if whichdecoder == 1:
-                output, state = self.decoder1(inputs, state)
-            else:
-                output, state = self.decoder2(inputs, state)
+            # if whichdecoder == 1:
+            output, state = self.decoder1(inputs, state)
+            # else:
+            #     output, state = self.decoder2(inputs, state)
             overvocab = self.linear(output.squeeze(1))
             
             if not sample:
@@ -256,10 +256,10 @@ class Seq2Seq2Decoder(nn.Module):
 
             all_indices.append(indices)
 
-            if whichdecoder == 1:
-                embedding = self.embedding_decoder1(indices)
-            else:
-                embedding = self.embedding_decoder2(indices)
+            # if whichdecoder == 1:
+            embedding = self.embedding_decoder1(indices)
+            # else:
+            #     embedding = self.embedding_decoder2(indices)
             inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
 
         max_indices = torch.cat(all_indices, 1)

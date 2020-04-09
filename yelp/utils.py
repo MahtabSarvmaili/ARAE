@@ -160,7 +160,6 @@ def batchify(data, bsz, shuffle=False, gpu=False):
 
         source = torch.LongTensor(np.array(source))
         target = torch.LongTensor(np.array(target)).view(-1)
-
         batches.append((source, target, lengths))
     print('{} batches'.format(len(batches)))
     return batches
