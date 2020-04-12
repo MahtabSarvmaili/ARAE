@@ -458,9 +458,9 @@ class Seq2Seq(nn.Module):
         norms = torch.norm(hidden, 2, 1)
         
         # For older versions of PyTorch use:
-        hidden = torch.div(hidden, norms.expand_as(hidden))
+        # hidden = torch.div(hidden, norms.expand_as(hidden))
         # For newest version of PyTorch (as of 8/25) use this:
-        # hidden = torch.div(hidden, norms.unsqueeze(1).expand_as(hidden))
+        hidden = torch.div(hidden, norms.unsqueeze(1).expand_as(hidden))
 
         if noise and self.noise_r > 0:
             gauss_noise = torch.normal(means=torch.zeros(hidden.size()),
@@ -494,45 +494,45 @@ class Seq2Seq(nn.Module):
 
         return decoded
 
-    def generate(self, hidden, maxlen, sample=False, temp=1.0):
-        """Generate through decoder; no backprop"""
+    def generate(self, hidden, maxlen, sample=True, temp=1.0):
+            """Generate through decoder; no backprop"""
 
-        batch_size = hidden.size(0)
+            batch_size = hidden.size(0)
 
-        if self.hidden_init:
-            # initialize decoder hidden state to encoder output
-            state = (hidden.unsqueeze(0), self.init_state(batch_size))
-        else:
-            state = self.init_hidden(batch_size)
-
-        # <sos>
-        self.start_symbols.data.resize_(batch_size, 1)
-        self.start_symbols.data.fill_(1)
-
-        embedding = self.embedding_decoder(self.start_symbols)
-        inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
-
-        # unroll
-        all_indices = []
-        for i in range(maxlen):
-            output, state = self.decoder(inputs, state)
-            overvocab = self.linear(output.squeeze(1))
-
-            if not sample:
-                vals, indices = torch.max(overvocab, 1)
+            if self.hidden_init:
+                    # initialize decoder hidden state to encoder output
+                    state = (hidden.unsqueeze(0), self.init_state(batch_size))
             else:
-                # sampling
-                probs = F.softmax(overvocab/temp)
-                indices = torch.multinomial(probs, 1)
+                    state = self.init_hidden(batch_size)
 
-            all_indices.append(indices)
+            # <sos>
+            self.start_symbols.data.resize_(batch_size)
+            self.start_symbols.data.fill_(1)
 
-            embedding = self.embedding_decoder(indices)
-            inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
+            embedding = self.embedding_decoder(self.start_symbols)
+            inputs = torch.cat([embedding, hidden], 1).unsqueeze(1)
 
-        max_indices = torch.cat(all_indices, 1)
+            # unroll
+            all_indices = []
+            for i in range(maxlen):
+                output, state = self.decoder(inputs, state)
+                overvocab = self.linear(output.squeeze(1))
 
-        return max_indices
+                if not sample:
+                        vals, indices = torch.max(overvocab, 1)
+                else:
+                        # sampling
+                        probs = F.softmax(overvocab/temp)
+                        indices = torch.multinomial(probs, 1).squeeze(1)
+
+                all_indices.append(indices.unsqueeze(1))
+
+                embedding = self.embedding_decoder(indices)
+                inputs = torch.cat([embedding, hidden], 1).unsqueeze(1)
+
+            max_indices = torch.cat(all_indices, 1)
+
+            return max_indices
 
 
 def load_models(load_path, epoch, twodecoders=False):
@@ -589,6 +589,7 @@ def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
 
     # generate from random noise
     fake_hidden = gan_gen(noise)
+
     max_indices = autoencoder.generate(hidden=fake_hidden,
                                        maxlen=maxlen,
                                        sample=sample)
@@ -609,3 +610,9 @@ def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
         sentences.append(sent)
 
     return sentences
+
+
+def saving_models(autoencoder, gan_gen, gan_disc, saving_path):
+    torch.save(autoencoder.state_dict(), '{}/autoencoder_model.pt'.format(saving_path))
+    torch.save(gan_gen.state_dict(), '{}/gan_generator.pt'.format(saving_path))
+    torch.save(gan_disc.state_dict(), '{}/gan_discriminator.pt'.format(saving_path))
