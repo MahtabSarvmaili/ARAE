@@ -33,6 +33,9 @@ parser.add_argument('--model_saving_path', type=str, default="./saved_models",
                     help='path to save models')
 
 # Data Processing Arguments
+parser.add_argument('--dataset_name', type=str, default='twitter',
+                    help='the name of the dataset used')
+
 parser.add_argument('--vocab_size', type=int, default=30000,
                     help='cut vocabulary down to this size '
                          '(most frequently seen words in train)')
@@ -74,7 +77,7 @@ parser.add_argument('--dropout', type=float, default=0.0,
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=50,
                     help='maximum number of epochs')
-parser.add_argument('--batch_size', type=int, default=64, metavar='N',
+parser.add_argument('--batch_size', type=int, default=256, metavar='N',
                     help='batch size')
 parser.add_argument('--niters_ae', type=int, default=1,
                     help='number of autoencoder iterations in training')
@@ -151,9 +154,9 @@ label_ids = {"pos": 1, "neg": 0}
 id2label = {1:"pos", 0:"neg"}
 
 # (Path to textfile, Name, Use4Vocab)
-datafiles = [(os.path.join(args.data_path, "valid_imdb.txt"), "valid", False),
-             (os.path.join(args.data_path, "train_imdb.txt"), "train", True),
-             (os.path.join(args.data_path, "test_imdb.txt"), "test", True)]
+datafiles = [(os.path.join(args.data_path, "valid_{}.txt".format(args.dataset_name)), "valid", False),
+             (os.path.join(args.data_path, "train_{}.txt").format(args.dataset_name), "train", True),
+             (os.path.join(args.data_path, "test_{}.txt").format(args.dataset_name), "test", True)]
 vocabdict = None
 if args.load_vocab != "":
     vocabdict = json.load(args.vocab)
@@ -165,16 +168,16 @@ corpus = Corpus(datafiles,
                 vocab=vocabdict)
 
 # dumping vocabulary
-with open('{}/vocab.json'.format(args.outf), 'w') as f:
+with open('{}/{}_vocab.json'.format(args.outf, args.dataset_name), 'w') as f:
     json.dump(corpus.dictionary.word2idx, f)
 
 # save arguments
 ntokens = len(corpus.dictionary.word2idx)
 print("Vocabulary Size: {}".format(ntokens))
 args.ntokens = ntokens
-with open('{}/args.json'.format(args.outf), 'w') as f:
+with open('{}/{}_args.json'.format(args.outf, args.dataset_name), 'w') as f:
     json.dump(vars(args), f)
-with open("{}/log.txt".format(args.outf), 'w') as f:
+with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'w') as f:
     f.write(str(vars(args)))
     f.write("\n\n")
 
@@ -273,8 +276,8 @@ def evaluate_autoencoder(data_source, epoch):
         total_loss += criterion_ce(masked_output/args.temp, masked_target).data
         bcnt += 1
 
-        aeoutf_from = "{}/{}_output_decoder_from.txt".format(args.outf, epoch)
-        aeoutf_tran = "{}/{}_output_decoder_tran.txt".format(args.outf, epoch)
+        aeoutf_from = "{}/{}_{}_output_decoder_from.txt".format(args.outf, epoch, args.dataset_name)
+        aeoutf_tran = "{}/{}_{}_output_decoder_tran.txt".format(args.outf, epoch, args.dataset_name)
         with open(aeoutf_from, 'w') as f_from, open(aeoutf_tran,'w') as f_trans:
             max_indices = \
                 max_indices.view(output.size(0), -1).data.cpu().numpy()
@@ -302,7 +305,7 @@ def evaluate_generator(noise, epoch):
     max_indices = \
         autoencoder.generate(fake_hidden, maxlen=50, sample=args.sample)
 
-    with open("%s/%s_generated.txt" % (args.outf, epoch), "w") as f:
+    with open("%s/%s_%s_generated.txt" % (args.outf, epoch, args.dataset_name), "w") as f:
         max_indices = max_indices.data.cpu().numpy()
         for idx in max_indices:
             # generated sentence
@@ -355,7 +358,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
                       elapsed * 1000 / args.log_interval,
                       cur_loss, math.exp(cur_loss), accuracy))
 
-        with open("{}/log.txt".format(args.outf), 'a') as f:
+        with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
             f.write('| epoch {:3d} | {:5d}/{:5d} batches | ms/batch {:5.2f} | '
                     'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f}\n'.
                     format(epoch, i, len(train_data),
@@ -463,7 +466,7 @@ def train_gan_d_into_ae(batch):
 
 
 print("Training...")
-with open("{}/log.txt".format(args.outf), 'a') as f:
+with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
     f.write('Training...\n')
 
 # schedule of increasing GAN training loops
@@ -484,7 +487,7 @@ for epoch in range(1, args.epochs+1):
     if epoch in gan_schedule:
         niter_gan += 1
         print("GAN training loop schedule increased to {}".format(niter_gan))
-        with open("{}/log.txt".format(args.outf), 'a') as f:
+        with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
             f.write("GAN training loop schedule increased to {}\n".
                     format(niter_gan))
 
@@ -537,7 +540,7 @@ for epoch in range(1, args.epochs+1):
                      errD_fake.data[0], errG.data[0]))
             # print("Classify loss: {:5.2f} | Classify accuracy: {:3.3f}\n".format(
             #         classify_loss, classify_acc))
-            with open("{}/log.txt".format(args.outf), 'a') as f:
+            with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
                 f.write('[%d/%d][%d/%d] Loss_D: %.4f (Loss_D_real: %.4f '
                         'Loss_D_fake: %.4f) Loss_G: %.4f\n'
                         % (epoch, args.epochs, niter, len(train_data),
@@ -559,7 +562,7 @@ for epoch in range(1, args.epochs+1):
           format(epoch, (time.time() - epoch_start_time),
                  test_loss, math.exp(test_loss), accuracy))
     print('-' * 89)
-    with open("{}/log.txt".format(args.outf), 'a') as f:
+    with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
         f.write('-' * 89)
         f.write('\n| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} |'
                 ' test ppl {:5.2f} | acc {:3.3f}\n'.
@@ -572,6 +575,8 @@ for epoch in range(1, args.epochs+1):
     # shuffle between epochs
     train_data = batchify(corpus.data['train'], args.batch_size, shuffle=True)
 
+saving_models(autoencoder, gan_gen, gan_disc, args.model_saving_path, args.dataset_name)
+
     
 test_loss, accuracy = evaluate_autoencoder(valid_data, epoch + 1)
 print('-' * 89)
@@ -580,7 +585,7 @@ print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
       format(epoch, (time.time() - epoch_start_time),
              test_loss, math.exp(test_loss), accuracy))
 print('-' * 89)
-with open("{}/log.txt".format(args.outf), 'a') as f:
+with open("{}/{}_log.txt".format(args.outf, args.dataset_name), 'a') as f:
     f.write('-' * 89)
     f.write('\n| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} |'
             ' test ppl {:5.2f} | acc {:3.3f}\n'.
@@ -590,7 +595,7 @@ with open("{}/log.txt".format(args.outf), 'a') as f:
     f.write('\n')
 
 if args.saving_model:
-    saving_models(autoencoder, gan_gen, gan_disc, args.model_saving_path)
+    saving_models(autoencoder, gan_gen, gan_disc, args.model_saving_path, args.dataset_name)
 
 # data generation
 

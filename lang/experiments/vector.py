@@ -165,7 +165,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch experiment')
     parser.add_argument('mode', default='gen',
                         help='choices [gen, alter]')
-    parser.add_argument('--load_path', type=str,
+    parser.add_argument('--load_path', type=str, default='',
                         help='directory to load models from')
 
     parser.add_argument('--dump', type=str, default="features.pkl",

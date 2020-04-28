@@ -612,7 +612,7 @@ def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
     return sentences
 
 
-def saving_models(autoencoder, gan_gen, gan_disc, saving_path):
-    torch.save(autoencoder.state_dict(), '{}/autoencoder_model.pt'.format(saving_path))
-    torch.save(gan_gen.state_dict(), '{}/gan_generator.pt'.format(saving_path))
-    torch.save(gan_disc.state_dict(), '{}/gan_discriminator.pt'.format(saving_path))
+def saving_models(autoencoder, gan_gen, gan_disc, saving_path, dataset):
+    torch.save(autoencoder.state_dict(), '{}/{}_autoencoder_model.pt'.format(saving_path, dataset))
+    torch.save(gan_gen.state_dict(), '{}/{}_gan_generator.pt'.format(saving_path, dataset))
+    torch.save(gan_disc.state_dict(), '{}/{}_gan_discriminator.pt'.format(saving_path, dataset))
